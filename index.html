@@ -3,7 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Double Pendule</title>
+  <title>Double Pendule – Simulation interactive du chaos | Double Pendulum Simulator</title>
+  <meta name="description" content="Simulation interactive et gratuite d'un double pendule dans le navigateur : réglez gravité, masses, longueurs et frottement, observez le chaos, les traces, l'énergie et l'espace des phases. Interactive double pendulum chaos simulator." />
+  <meta name="keywords" content="double pendule, double pendulum, simulation, chaos, physique, pendule, Runge-Kutta, RK4, espace des phases, énergie, simulateur" />
+  <meta name="author" content="jdv38" />
+  <link rel="canonical" href="https://jdv38.github.io/double-pendule/" />
+  <meta name="theme-color" content="#2a2d33" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Double Pendule – Simulation interactive du chaos" />
+  <meta property="og:description" content="Lancez un double pendule dans votre navigateur et observez le chaos : traces colorées, énergie, espace des phases, préréglages." />
+  <meta property="og:url" content="https://jdv38.github.io/double-pendule/" />
+  <meta property="og:image" content="https://jdv38.github.io/double-pendule/screenshot.png" />
+  <meta property="og:image:width" content="1400" />
+  <meta property="og:image:height" content="850" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:locale:alternate" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Double Pendule – Simulation interactive du chaos" />
+  <meta name="twitter:description" content="Lancez un double pendule dans votre navigateur et observez le chaos." />
+  <meta name="twitter:image" content="https://jdv38.github.io/double-pendule/screenshot.png" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Double Pendule","alternateName":"Double Pendulum Simulator","url":"https://jdv38.github.io/double-pendule/","description":"Simulation interactive d'un double pendule chaotique dans le navigateur.","applicationCategory":"EducationalApplication","operatingSystem":"Any","inLanguage":["fr","en"],"offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},"image":"https://jdv38.github.io/double-pendule/screenshot.png"}</script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
     :root {
@@ -529,7 +548,7 @@
 
   function applyI18n() {
     document.documentElement.lang = lang;
-    document.title = t('title');
+    document.title = t('title') + (t('title') === 'Double pendule' ? ' – Simulation interactive du chaos' : ' – Interactive chaos simulator');
     document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
     document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.getAttribute('data-i18n-title')); });
     $('btn-play').textContent = state.running ? t('pause') : t('play');

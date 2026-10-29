@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Double Pendule</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+    :root {
+      --bg: #2a2d33; --panel: rgba(18, 22, 30, 0.94); --ink: #e8ebe6;
+      --muted: #8b938a; --line: rgba(232, 235, 230, 0.12);
+      --accent: #d4a574; --accent-2: #6f9e8e; --warn: #c47a6a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden; background: var(--bg);
+      color: var(--ink); font-family: 'Instrument Sans', system-ui, sans-serif;
+    }
+    canvas#c { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+    canvas#c.dragging { cursor: grabbing; }
+    #ui {
+      position: fixed; top: 1.1rem; left: 1.1rem; width: min(320px, calc(100vw - 1.5rem));
+      max-height: calc(100vh - 2rem); display: flex; flex-direction: column;
+      background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(14px);
+      z-index: 2; user-select: none;
+    }
+    #ui.hidden { display: none; }
+    #ui-drag {
+      display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.55rem 0.55rem 0.85rem;
+      border-bottom: 1px solid var(--line); cursor: grab; flex-shrink: 0;
+    }
+    #ui.dragging #ui-drag { cursor: grabbing; }
+    #ui-drag .grip {
+      flex: 0 0 auto; width: 10px; height: 14px;
+      background: radial-gradient(circle, var(--muted) 1.1px, transparent 1.2px);
+      background-size: 5px 5px; background-position: 0 0; opacity: 0.7;
+    }
+    #ui-drag h1 {
+      font-size: 0.84rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #ui-drag .header-actions {
+      display: flex; align-items: center; gap: 0.3rem; flex: 0 0 auto; margin-left: auto;
+    }
+    #ui-drag .icon-btn {
+      flex: 0 0 auto !important;
+      width: 1.85rem; height: 1.85rem; min-width: 1.85rem; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.9rem; line-height: 1; letter-spacing: 0; text-transform: none;
+      border: 1px solid var(--line); color: var(--muted);
+    }
+    #ui-drag .icon-btn:hover { color: var(--accent); border-color: rgba(212,165,116,.55); }
+    #btn-show {
+      position: fixed; top: 1.1rem; left: 1.1rem; z-index: 3; display: none; padding: 0.6rem 0.85rem;
+      background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(14px);
+      font: 500 0.7rem/1 'Instrument Sans', sans-serif; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink); cursor: pointer;
+    }
+    #btn-show.visible { display: block; }
+    #btn-show:hover { border-color: rgba(212,165,116,.55); color: var(--accent); }
+    #ui-body { padding: 0.8rem 1rem 1rem; overflow-y: auto; overscroll-behavior: contain; }
+    .sub { font-size: 0.74rem; color: var(--muted); line-height: 1.45; margin-bottom: 0.8rem; }
+    details.fold {
+      margin: 0.55rem 0 0.15rem; border-top: 1px solid var(--line); padding-top: 0.35rem;
+    }
+    details.fold:first-of-type { margin-top: 0.1rem; }
+    details.fold > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+      padding: 0.35rem 0 0.45rem; user-select: none;
+    }
+    details.fold > summary::-webkit-details-marker { display: none; }
+    details.fold > summary::after {
+      content: '+'; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--muted);
+    }
+    details.fold[open] > summary::after { content: '−'; }
+    details.fold > summary:hover { color: var(--ink); }
+    .fold-body { padding-bottom: 0.25rem; }
+    .fold-actions {
+      display: flex; gap: 0.4rem; margin: 0.35rem 0 0.55rem;
+    }
+    .fold-actions button { flex: 1; padding: 0.45rem; font-size: 0.65rem; }
+    .row { display: flex; gap: 0.45rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
+    button, select {
+      font: 500 0.7rem/1 'Instrument Sans', sans-serif; letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 0.55rem 0.45rem; border: 1px solid var(--line); background: transparent; color: var(--ink);
+      cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+    }
+    button { flex: 1; min-width: 0; }
+    button:hover, select:hover { border-color: rgba(212,165,116,.55); color: var(--accent); }
+    button.primary { background: rgba(212,165,116,.14); border-color: rgba(212,165,116,.4); color: var(--accent); }
+    button.active { background: rgba(111,158,142,.18); border-color: rgba(111,158,142,.5); color: var(--accent-2); }
+    select {
+      width: 100%; margin-bottom: 0.6rem; appearance: none; text-transform: none; letter-spacing: 0.02em;
+      padding: 0.5rem 1.7rem 0.5rem 0.6rem;
+      background:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%) right 11px top 55%/5px 5px no-repeat,
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%) right 6px top 55%/5px 5px no-repeat, transparent;
+    }
+    select option { background: #151922; color: var(--ink); }
+    label {
+      display: flex; justify-content: space-between; align-items: baseline; font-size: 0.68rem;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.25rem;
+    }
+    label span { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--ink); }
+    input[type=range] { width: 100%; margin-bottom: 0.55rem; accent-color: var(--accent); cursor: pointer; }
+    input[type=range]:disabled { opacity: .35; cursor: not-allowed; }
+    input[type=color] {
+      width: 100%; height: 1.85rem; margin-bottom: 0.55rem; padding: 0;
+      border: 1px solid var(--line); background: transparent; cursor: pointer;
+    }
+    .color-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-bottom: 0.3rem; }
+    .color-row label { margin-bottom: 0.15rem; }
+    .color-row input[type=color] { margin-bottom: 0.45rem; }
+    .readouts, #status-bar {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 0.65rem; margin-top: 0.3rem;
+      padding-top: 0.65rem; border-top: 1px solid var(--line);
+      font-family: 'JetBrains Mono', monospace; font-size: 0.64rem; color: var(--muted);
+    }
+    .readouts b, #status-bar b { color: var(--ink); font-weight: 500; }
+    #status-bar { grid-template-columns: 1fr; gap: 0.25rem; }
+    #status-bar .warn { color: var(--warn); }
+    #hud-charts {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    }
+    #hud-charts.hidden { display: none; }
+    .chart-win {
+      position: fixed;
+      pointer-events: auto;
+      display: flex; flex-direction: column;
+      width: 240px; height: 140px;
+      min-width: 160px; min-height: 100px;
+      max-width: min(90vw, 900px); max-height: min(70vh, 700px);
+      resize: both; overflow: hidden;
+      background: rgba(12,14,18,.82); border: 1px solid var(--line); backdrop-filter: blur(8px);
+      box-shadow: 0 8px 28px rgba(0,0,0,.28);
+      z-index: 2;
+    }
+    #energy-win { right: 1rem; bottom: calc(1rem + 140px + 0.55rem); }
+    #phase-win { right: 1rem; bottom: 1rem; }
+    .chart-win.dragging { z-index: 6; }
+    .chart-win header {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+      gap: 0.4rem; padding: 0.28rem 0.4rem 0.28rem 0.55rem;
+      border-bottom: 1px solid var(--line); cursor: grab; user-select: none;
+      font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    }
+    .chart-win.dragging header { cursor: grabbing; }
+    .chart-win header .chart-btns { display: flex; gap: 0.2rem; }
+    .chart-win header button {
+      flex: 0 0 auto !important; width: 1.45rem; height: 1.45rem; min-width: 1.45rem; padding: 0;
+      font-size: 0.72rem; letter-spacing: 0; text-transform: none; line-height: 1;
+      color: var(--muted); border-color: transparent;
+    }
+    .chart-win header button:hover { color: var(--accent); border-color: var(--line); }
+    .chart-win canvas {
+      display: block; flex: 1 1 auto; width: 100% !important; height: 100% !important;
+      min-height: 0; background: transparent;
+    }
+    #toast {
+      position: fixed; top: 1.1rem; left: 50%; transform: translateX(-50%) translateY(-120%);
+      padding: 0.55rem 0.9rem; background: var(--panel); border: 1px solid var(--line);
+      font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; z-index: 5;
+      transition: transform .25s ease; pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #hint {
+      position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%);
+      font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(232,235,230,.35); pointer-events: none; transition: opacity 1s; z-index: 2;
+      text-align: center; max-width: 92vw;
+    }
+    #hint.fade { opacity: 0; }
+    #help {
+      position: fixed; inset: 0; z-index: 20; display: none;
+      align-items: center; justify-content: center;
+      /* Solid overlay — no backdrop-filter (blur over animated canvas is very costly) */
+      background: rgba(8, 10, 14, 0.82);
+      padding: 1rem;
+    }
+    #help.open { display: flex; }
+    #help-card {
+      width: min(420px, 100%); max-height: min(78vh, 640px); overflow-y: auto;
+      background: var(--panel); border: 1px solid var(--line); padding: 1rem 1.1rem 1.15rem;
+    }
+    #help-card header {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      margin-bottom: 0.85rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--line);
+    }
+    #help-card h2 {
+      font-size: 0.88rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    #help-close {
+      flex: 0 0 auto; width: 2rem; padding: 0.4rem 0; font-size: 0.85rem;
+      letter-spacing: 0; text-transform: none;
+    }
+    #help-body { font-size: 0.78rem; line-height: 1.45; color: var(--muted); }
+    #help-body h3 {
+      margin: 0.75rem 0 0.3rem; font-size: 0.68rem; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent); font-weight: 600;
+    }
+    #help-body h3:first-child { margin-top: 0; }
+    #help-body p { margin: 0 0 0.35rem; }
+    #help-body kbd {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+      color: var(--ink); background: rgba(232,235,230,0.08);
+      border: 1px solid var(--line); padding: 0.05rem 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  <button id="btn-show" type="button" data-i18n="settings" data-i18n-title="showSettingsTitle">Réglages</button>
+  <div id="toast"></div>
+
+  <div id="help" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div id="help-card">
+      <header>
+        <h2 id="help-title" data-i18n="helpTitle">Aide</h2>
+        <button type="button" id="help-close" data-i18n-title="helpCloseTitle">✕</button>
+      </header>
+      <div id="help-body"></div>
+    </div>
+  </div>
+
+  <div id="ui">
+    <div id="ui-drag">
+      <div class="grip" aria-hidden="true"></div>
+      <h1 data-i18n="title">Double pendule</h1>
+      <div class="header-actions">
+        <button id="btn-help" class="icon-btn" type="button" data-i18n-title="helpOpenTitle" aria-label="Help">?</button>
+        <button id="btn-hide" class="icon-btn" type="button" data-i18n-title="hideSettingsTitle" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div id="ui-body">
+      <p class="sub" data-i18n="subtitle">Espace play · R pose · C trace · F plein écran · P panneau · H aide</p>
+
+      <div class="row">
+        <button id="btn-play" class="primary" data-i18n="play">Lancer</button>
+        <button id="btn-reset" data-i18n="resetPose">Reset pose</button>
+      </div>
+      <div class="row">
+        <button id="btn-center" data-i18n="recenter">Recentrer</button>
+        <button id="btn-clear-trail" data-i18n="clearTrail">Effacer trace</button>
+      </div>
+      <div class="row">
+        <button id="btn-reset-settings" data-i18n="resetSettings">Reset réglages</button>
+        <button id="btn-fullscreen" data-i18n="fullscreen">Plein écran</button>
+      </div>
+      <div class="row">
+        <button id="btn-export-png" data-i18n="exportPng">PNG</button>
+        <button id="btn-export-svg" data-i18n="exportSvg">SVG</button>
+        <button id="btn-copy" data-i18n="copyImage">Copier</button>
+      </div>
+      <div class="row">
+        <button id="btn-share" data-i18n="shareLink">Lien</button>
+        <button id="btn-save" data-i18n="saveLocal">Sauver</button>
+      </div>
+
+      <div class="fold-actions">
+        <button type="button" id="btn-expand-all" data-i18n="expandAll">Tout développer</button>
+        <button type="button" id="btn-collapse-all" data-i18n="collapseAll">Tout réduire</button>
+      </div>
+
+      <details class="fold" open>
+        <summary data-i18n="sectionInterface">Interface</summary>
+        <div class="fold-body">
+          <label data-i18n="language">Langue</label>
+          <select id="lang"><option value="fr">Français</option><option value="en">English</option></select>
+          <label data-i18n="preset">Préréglage</label>
+          <select id="preset">
+            <option value="" data-i18n="presetCustom">— perso —</option>
+            <option value="calm" data-i18n="presetCalm">Calme</option>
+            <option value="chaotic" data-i18n="presetChaotic">Chaotique</option>
+            <option value="friction" data-i18n="presetFriction">Forte friction</option>
+            <option value="heavy" data-i18n="presetHeavy">Masse lourde</option>
+            <option value="fast" data-i18n="presetFast">Temps rapide</option>
+          </select>
+          <label><span data-i18n="panSens">Sensibilité pan</span> <span id="pan-sens-val">1.00</span></label>
+          <input id="pan-sens" type="range" min="0.3" max="2.5" step="0.05" value="1" />
+          <label><span data-i18n="zoomSens">Sensibilité zoom</span> <span id="zoom-sens-val">1.00</span></label>
+          <input id="zoom-sens" type="range" min="0.3" max="2.5" step="0.05" value="1" />
+          <label><span data-i18n="autoHide">Auto-masquer panneau</span> <span id="auto-hide-val">off</span></label>
+          <input id="auto-hide" type="range" min="0" max="1" step="1" value="0" />
+          <label><span data-i18n="showCharts">Graphiques</span> <span id="charts-val">on</span></label>
+          <input id="show-charts" type="range" min="0" max="1" step="1" value="1" />
+          <label><span data-i18n="chartSize">Taille graphiques</span> <span id="chart-size-val">1.00×</span></label>
+          <input id="chart-size" type="range" min="0.7" max="2.5" step="0.05" value="1" />
+        </div>
+      </details>
+
+      <details class="fold" open>
+        <summary data-i18n="sectionPhysics">Physique</summary>
+        <div class="fold-body">
+          <label><span data-i18n="gravity">Gravité</span> <span id="g-val">9.81</span></label>
+          <input id="g" type="range" min="1" max="25" step="0.1" value="9.81" />
+          <label><span data-i18n="friction">Frottement</span> <span id="fric-val">0.00</span></label>
+          <input id="fric" type="range" min="0" max="1.5" step="0.01" value="0" />
+          <label><span data-i18n="timeScale">Vitesse temps</span> <span id="time-val">1.00×</span></label>
+          <input id="time" type="range" min="0.1" max="8" step="0.05" value="1" />
+          <label><span data-i18n="length1">Longueur 1</span> <span id="l1-val">1.00</span></label>
+          <input id="l1" type="range" min="0.4" max="1.8" step="0.01" value="1" />
+          <label><span data-i18n="length2">Longueur 2</span> <span id="l2-val">1.00</span></label>
+          <input id="l2" type="range" min="0.4" max="1.8" step="0.01" value="1" />
+          <label><span data-i18n="mass1">Masse 1</span> <span id="m1-val">1.00</span></label>
+          <input id="m1" type="range" min="0.2" max="3" step="0.05" value="1" />
+          <label><span data-i18n="mass2">Masse 2</span> <span id="m2-val">1.00</span></label>
+          <input id="m2" type="range" min="0.2" max="3" step="0.05" value="1" />
+        </div>
+      </details>
+
+      <details class="fold">
+        <summary data-i18n="sectionDisplay">Affichage</summary>
+        <div class="fold-body">
+          <label data-i18n="background">Fond</label>
+          <input id="bg" type="color" value="#2a2d33" />
+        </div>
+      </details>
+
+      <details class="fold" open>
+        <summary data-i18n="sectionTrail">Trace</summary>
+        <div class="fold-body">
+          <label><span data-i18n="visible">Visible</span> <span id="trail-val">on</span></label>
+          <input id="trail" type="range" min="0" max="1" step="1" value="1" />
+          <label><span data-i18n="trailBoth">Traces m1+m2</span> <span id="trail-both-val">off</span></label>
+          <input id="trail-both" type="range" min="0" max="1" step="1" value="0" />
+          <label data-i18n="style">Style</label>
+          <select id="trail-style">
+            <option value="gradient" data-i18n="styleGradient">Dégradé</option>
+            <option value="solid" data-i18n="styleSolid">Couleur fixe</option>
+            <option value="speed" data-i18n="styleSpeed">Selon vitesse</option>
+            <option value="rainbow" data-i18n="styleRainbow">Arc-en-ciel</option>
+          </select>
+          <div class="color-row">
+            <div><label data-i18n="colorA">Lent / A</label><input id="trail-c1" type="color" value="#2a4a5e" /></div>
+            <div><label data-i18n="colorB">Rapide / B</label><input id="trail-c2" type="color" value="#f0c27b" /></div>
+          </div>
+          <label><span data-i18n="thickness">Épaisseur</span> <span id="trail-w-val">1.5</span></label>
+          <input id="trail-w" type="range" min="0.5" max="8" step="0.1" value="1.5" />
+          <label><span data-i18n="persistence">Persistance</span> <span id="trail-len-val">900</span></label>
+          <input id="trail-len" type="range" min="100" max="8000" step="50" value="900" />
+          <label><span data-i18n="infinite">Infini</span> <span id="trail-inf-val">off</span></label>
+          <input id="trail-inf" type="range" min="0" max="1" step="1" value="0" />
+          <label><span data-i18n="opacity">Opacité</span> <span id="trail-op-val">0.55</span></label>
+          <input id="trail-op" type="range" min="0.05" max="1" step="0.01" value="0.55" />
+          <label><span data-i18n="fade">Fondu</span> <span id="trail-fade-val">on</span></label>
+          <input id="trail-fade" type="range" min="0" max="1" step="1" value="1" />
+          <label><span data-i18n="smoothing">Lissage</span> <span id="trail-soft-val">on</span></label>
+          <input id="trail-soft" type="range" min="0" max="1" step="1" value="1" />
+        </div>
+      </details>
+
+      <div class="readouts">
+        <div>θ₁ <b id="th1">0.00°</b></div><div>θ₂ <b id="th2">0.00°</b></div>
+        <div>ω₁ <b id="w1">0.00</b></div><div>ω₂ <b id="w2">0.00</b></div>
+      </div>
+      <div id="status-bar">
+        <div data-i18n-prefix="energy">E <b id="e-val">0.00</b></div>
+        <div id="stability" data-i18n="stabilityOk">Stabilité OK</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud-charts">
+    <div class="chart-win" id="energy-win" data-base-w="240" data-base-h="140">
+      <header>
+        <span data-i18n="energyChart">Énergie</span>
+        <div class="chart-btns">
+          <button type="button" class="chart-grow" data-target="energy-win" title="+">+</button>
+          <button type="button" class="chart-shrink" data-target="energy-win" title="−">−</button>
+        </div>
+      </header>
+      <canvas id="energy-chart" width="480" height="240"></canvas>
+    </div>
+    <div class="chart-win" id="phase-win" data-base-w="240" data-base-h="140">
+      <header>
+        <span data-i18n="phaseChart">Espace des phases θ₁–θ₂</span>
+        <div class="chart-btns">
+          <button type="button" class="chart-grow" data-target="phase-win" title="+">+</button>
+          <button type="button" class="chart-shrink" data-target="phase-win" title="−">−</button>
+        </div>
+      </header>
+      <canvas id="phase-chart" width="480" height="240"></canvas>
+    </div>
+  </div>
+  <div id="hint" data-i18n="hint">Masses · Fond=pan · Molette=zoom · P=panneau · H=aide · Espace=play</div>
+  <canvas id="c"></canvas>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const energyCanvas = document.getElementById('energy-chart');
+  const phaseCanvas = document.getElementById('phase-chart');
+  const ectx = energyCanvas.getContext('2d');
+  const pctx = phaseCanvas.getContext('2d');
+  const ui = document.getElementById('ui');
+  const uiDrag = document.getElementById('ui-drag');
+  const btnShow = document.getElementById('btn-show');
+  const hudCharts = document.getElementById('hud-charts');
+  const $ = (id) => document.getElementById(id);
+
+  const I18N = {
+    fr: {
+      title:'Double pendule', settings:'Réglages', showSettingsTitle:'Afficher (P)', hideSettingsTitle:'Masquer (P)',
+      subtitle:'Espace play · R pose · C trace · F plein écran · P panneau · H aide',
+      play:'Lancer', pause:'Pause', resetPose:'Reset pose', recenter:'Recentrer', clearTrail:'Effacer trace',
+      resetSettings:'Reset réglages', fullscreen:'Plein écran', exportPng:'PNG', exportSvg:'SVG', copyImage:'Copier',
+      shareLink:'Lien', saveLocal:'Sauver', sectionInterface:'Interface', language:'Langue', preset:'Préréglage',
+      presetCustom:'— perso —', presetCalm:'Calme', presetChaotic:'Chaotique', presetFriction:'Forte friction',
+      presetHeavy:'Masse lourde', presetFast:'Temps rapide', panSens:'Sensibilité pan', zoomSens:'Sensibilité zoom',
+      autoHide:'Auto-masquer panneau', showCharts:'Graphiques', chartSize:'Taille graphiques',
+      sectionPhysics:'Physique', gravity:'Gravité',
+      friction:'Frottement', timeScale:'Vitesse temps', length1:'Longueur 1', length2:'Longueur 2', mass1:'Masse 1',
+      mass2:'Masse 2', sectionDisplay:'Affichage', background:'Fond', sectionTrail:'Trace', visible:'Visible',
+      trailBoth:'Traces m1+m2', style:'Style', styleGradient:'Dégradé', styleSolid:'Couleur fixe',
+      styleSpeed:'Selon vitesse', styleRainbow:'Arc-en-ciel', colorA:'Lent / A', colorB:'Rapide / B',
+      expandAll:'Tout développer', collapseAll:'Tout réduire',
+      thickness:'Épaisseur', persistence:'Persistance', infinite:'Infini', opacity:'Opacité', fade:'Fondu',
+      smoothing:'Lissage', hint:'Masses · Fond=pan · Molette=zoom · P=panneau · H=aide · Espace=play',
+      on:'on', off:'off', stabilityOk:'Stabilité OK', stabilityWarn:'Attention: pas élevé / dérive E',
+      energyChart:'Énergie', phaseChart:'Espace des phases θ₁–θ₂', toastCopied:'Image copiée',
+      toastLink:'Lien copié', toastSaved:'Réglages sauvés', toastPng:'PNG exporté', toastSvg:'SVG exporté',
+      helpTitle:'Aide', helpOpenTitle:'Aide (H)', helpCloseTitle:'Fermer (Esc / H)',
+      helpSections: [
+        ['Navigation', 'Glisser une masse = angles de départ. Glisser le fond = déplacer la vue. Molette = zoom. Double-clic = centrer.'],
+        ['Raccourcis', '<kbd>Espace</kbd> play/pause · <kbd>R</kbd> reset pose · <kbd>C</kbd> effacer trace · <kbd>F</kbd> plein écran · <kbd>P</kbd> panneau · <kbd>H</kbd> aide'],
+        ['Physique', 'Gravité, frottement, longueurs et masses. Vitesse temps accélère la simulation sans perdre la densité de trace.'],
+        ['Trace', 'Styles : dégradé, couleur fixe, selon vitesse (A=lent, B=rapide), arc-en-ciel. m1+m2 active deux traces distinctes. Infini garde toute la trajectoire.'],
+        ['Graphique Énergie', 'Trois courbes dans le temps : <b>vert</b> = énergie potentielle (hauteur des masses), <b>ambre</b> = énergie cinétique (vitesse), <b>blanc</b> = totale (potentielle + cinétique). Sans frottement le total reste à peu près plat (échange entre les deux). Avec frottement le total descend (dissipation). Une forte dérive du total sans frottement signale un pas trop grand / time scale élevé.'],
+        ['Espace des phases', 'Trace θ₂ en fonction de θ₁. Visualise l’orbite du système dans l’espace des angles : trajectoire régulière ou chaos. Les fenêtres se déplacent par le titre, se redimensionnent au coin ou avec +/−.'],
+        ['Interface', 'Préréglages, sensibilités pan/zoom, taille des graphiques. PNG · SVG · Copier · Lien · Sauver pour exporter ou partager.'],
+      ],
+    },
+    en: {
+      title:'Double pendulum', settings:'Settings', showSettingsTitle:'Show (P)', hideSettingsTitle:'Hide (P)',
+      subtitle:'Space play · R pose · C trail · F fullscreen · P panel · H help',
+      play:'Start', pause:'Pause', resetPose:'Reset pose', recenter:'Recenter', clearTrail:'Clear trail',
+      resetSettings:'Reset settings', fullscreen:'Fullscreen', exportPng:'PNG', exportSvg:'SVG', copyImage:'Copy',
+      shareLink:'Link', saveLocal:'Save', sectionInterface:'Interface', language:'Language', preset:'Preset',
+      presetCustom:'— custom —', presetCalm:'Calm', presetChaotic:'Chaotic', presetFriction:'High friction',
+      presetHeavy:'Heavy tip', presetFast:'Fast time', panSens:'Pan sensitivity', zoomSens:'Zoom sensitivity',
+      autoHide:'Auto-hide panel', showCharts:'Charts', chartSize:'Chart size',
+      sectionPhysics:'Physics', gravity:'Gravity',
+      friction:'Friction', timeScale:'Time scale', length1:'Length 1', length2:'Length 2', mass1:'Mass 1',
+      mass2:'Mass 2', sectionDisplay:'Display', background:'Background', sectionTrail:'Trail', visible:'Visible',
+      trailBoth:'Trails m1+m2', style:'Style', styleGradient:'Gradient', styleSolid:'Solid color',
+      styleSpeed:'By speed', styleRainbow:'Rainbow', colorA:'Slow / A', colorB:'Fast / B',
+      expandAll:'Expand all', collapseAll:'Collapse all',
+      thickness:'Thickness', persistence:'Persistence', infinite:'Infinite', opacity:'Opacity', fade:'Fade',
+      smoothing:'Smoothing', hint:'Masses · Background=pan · Scroll=zoom · P=panel · H=help · Space=play',
+      on:'on', off:'off', stabilityOk:'Stability OK', stabilityWarn:'Warning: large step / E drift',
+      energyChart:'Energy', phaseChart:'Phase space θ₁–θ₂', toastCopied:'Image copied',
+      toastLink:'Link copied', toastSaved:'Settings saved', toastPng:'PNG exported', toastSvg:'SVG exported',
+      helpTitle:'Help', helpOpenTitle:'Help (H)', helpCloseTitle:'Close (Esc / H)',
+      helpSections: [
+        ['Navigation', 'Drag a mass = start angles. Drag background = pan. Scroll = zoom. Double-click = center.'],
+        ['Shortcuts', '<kbd>Space</kbd> play/pause · <kbd>R</kbd> reset pose · <kbd>C</kbd> clear trail · <kbd>F</kbd> fullscreen · <kbd>P</kbd> panel · <kbd>H</kbd> help'],
+        ['Physics', 'Gravity, friction, lengths and masses. Time scale speeds up the sim while keeping trail density.'],
+        ['Trail', 'Styles: gradient, solid, by speed (A=slow, B=fast), rainbow. m1+m2 draws two distinct trails. Infinite keeps the full path.'],
+        ['Energy chart', 'Three curves over time: <b>green</b> = potential energy (mass heights), <b>amber</b> = kinetic energy (speed), <b>white</b> = total (potential + kinetic). With no friction the total stays roughly flat (energy swaps between the two). With friction the total falls (dissipation). A large total drift with no friction means the step / time scale is too high.'],
+        ['Phase space', 'Plots θ₂ versus θ₁. Shows the system orbit in angle space: regular motion or chaos. Drag windows by the title bar; resize from the corner or with +/−.'],
+        ['Interface', 'Presets, pan/zoom sensitivity, chart size. PNG · SVG · Copy · Link · Save to export or share.'],
+      ],
+    },
+  };
+
+  let lang = localStorage.getItem('dp-lang') === 'en' ? 'en' : 'fr';
+  const t = (k) => (I18N[lang] && I18N[lang][k]) || I18N.fr[k] || k;
+
+  const TRAIL_SOFT_CAP = 100000;
+  const PHYS_DT = 1 / 120;
+  const TRAIL_SAMPLE_DT = 1 / 90;
+  const TRAIL_MAX_GAP = 2.2;
+  // Beyond this, treat as a teleport (don't densify / don't draw a chord)
+  const TRAIL_BREAK = 48;
+  const ENERGY_HIST = 240;
+  const PHASE_HIST = 400;
+
+  const DEFAULT_SETTINGS = {
+    L1:1, L2:1, m1:1, m2:1, g:9.81, friction:0, timeScale:1, bg:'#2a2d33',
+    trail:true, trailBoth:false, trailStyle:'gradient', trailC1:'#2a4a5e', trailC2:'#f0c27b',
+    trailWidth:1.5, trailLen:900, trailInfinite:false, trailOpacity:0.55, trailFade:true, trailSoft:true,
+    panSens:1, zoomSens:1, autoHide:false, showCharts:true, chartSize:1,
+  };
+
+  const PRESETS = {
+    calm: { g:9.81, friction:0.08, timeScale:1, L1:1, L2:1, m1:1, m2:1,
+      theta1:0.4, theta2:0.55, trailStyle:'gradient', trailC1:'#8fad9e', trailC2:'#d4c4a8' },
+    chaotic: { g:9.81, friction:0, timeScale:1, L1:1, L2:1, m1:1, m2:1,
+      theta1:2.2, theta2:2.6, trailStyle:'rainbow', trailBoth:false },
+    friction: { g:9.81, friction:0.55, timeScale:1, L1:1.1, L2:0.9, m1:1, m2:1.4,
+      theta1:2.8, theta2:1.2, trailStyle:'solid', trailC1:'#c47a6a', trailC2:'#f0c27b' },
+    heavy: { g:9.81, friction:0.05, timeScale:1, L1:1, L2:1.2, m1:0.6, m2:2.6,
+      theta1:1.8, theta2:2.4, trailStyle:'speed', trailC1:'#1b3a4b', trailC2:'#ff6b4a', trailBoth:true },
+    fast: { g:12, friction:0.02, timeScale:3, L1:1, L2:1, m1:1, m2:1,
+      theta1:2.0, theta2:2.8, trailStyle:'speed', trailC1:'#2a4a5e', trailC2:'#f0c27b' },
+  };
+
+  const state = {
+    theta1: Math.PI * 0.65, theta2: Math.PI * 1.15, omega1:0, omega2:0, running:false,
+    ...DEFAULT_SETTINGS,
+  };
+
+  let startPose = { theta1: state.theta1, theta2: state.theta2, omega1:0, omega2:0 };
+  let pendulums = [];
+  let basePivot = { x:0, y:0 }, pivot = { x:0, y:0 }, refScale = 160, scale = 160;
+  let drag = null, panLast = null, hover = null, panelHidden = false, autoHideTimer = null;
+  let trailSampleAcc = 0;
+  let energyHist = [], phaseHist = [], e0 = null, stabilityBad = false;
+  let speedPeak = 12; // shared absolute scale for both trails
+
+  function zoomK() { return scale / refScale; }
+
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), 1600);
+  }
+
+  function renderHelp() {
+    const body = $('help-body');
+    const sections = (I18N[lang] && I18N[lang].helpSections) || I18N.fr.helpSections;
+    body.innerHTML = sections.map(([title, text]) =>
+      `<h3>${title}</h3><p>${text}</p>`
+    ).join('');
+  }
+
+  function applyI18n() {
+    document.documentElement.lang = lang;
+    document.title = t('title');
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.getAttribute('data-i18n-title')); });
+    $('btn-play').textContent = state.running ? t('pause') : t('play');
+    $('lang').value = lang;
+    renderHelp();
+    updateLabels();
+  }
+
+  let helpOpen = false;
+  let rafId = 0;
+
+  function setHelpOpen(open) {
+    helpOpen = !!open;
+    $('help').classList.toggle('open', helpOpen);
+    if (helpOpen) {
+      // Stop the render/physics loop while help is open
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    } else {
+      last = performance.now();
+      if (!rafId) rafId = requestAnimationFrame(frame);
+    }
+  }
+
+  function makePendulum(th1, th2, w1=0, w2=0, hue=28) {
+    return { theta1:th1, theta2:th2, omega1:w1, omega2:w2, trail1:[], trail2:[], last1:null, last2:null, hue };
+  }
+
+  function rebuildClones(keepPrimaryAngles = true) {
+    const th1 = keepPrimaryAngles ? (pendulums[0]?.theta1 ?? state.theta1) : state.theta1;
+    const th2 = keepPrimaryAngles ? (pendulums[0]?.theta2 ?? state.theta2) : state.theta2;
+    pendulums = [makePendulum(th1, th2, 0, 0, 28)];
+    syncPrimaryFromPendulum();
+    trailSampleAcc = 0;
+    energyHist = []; phaseHist = []; e0 = null;
+    speedPeak = 12;
+  }
+
+  function syncPrimaryFromPendulum() {
+    const p = pendulums[0];
+    if (!p) return;
+    state.theta1 = p.theta1; state.theta2 = p.theta2;
+    state.omega1 = p.omega1; state.omega2 = p.omega2;
+  }
+
+  function syncPendulumFromPrimary() {
+    if (!pendulums[0]) return;
+    pendulums[0].theta1 = state.theta1; pendulums[0].theta2 = state.theta2;
+    pendulums[0].omega1 = state.omega1; pendulums[0].omega2 = state.omega2;
+  }
+
+  function clearAllTrails() {
+    for (const p of pendulums) {
+      p.trail1.length = 0; p.trail2.length = 0; p.last1 = null; p.last2 = null;
+    }
+    trailSampleAcc = 0;
+    energyHist = []; phaseHist = [];
+  }
+
+  function trimArr(arr) {
+    const cap = state.trailInfinite ? TRAIL_SOFT_CAP : state.trailLen;
+    while (arr.length > cap) arr.shift();
+  }
+
+  function pushPt(arr, lastKey, pend, x, y, speed = 0) {
+    let last = pend[lastKey];
+    if (last) {
+      const dx = x - last.x, dy = y - last.y, dist = Math.hypot(dx, dy);
+      if (dist < 0.15) {
+        last.x = x; last.y = y;
+        if (arr.length) {
+          arr[arr.length - 1].x = x;
+          arr[arr.length - 1].y = y;
+          arr[arr.length - 1].spd = speed;
+        }
+        return;
+      }
+      // Teleport / discontinuity: break the polyline (avoids star chords through the pivot)
+      if (dist > TRAIL_BREAK) {
+        arr.push({ x, y, spd: speed, brk: true });
+        pend[lastKey] = { x, y, spd: speed };
+        trimArr(arr);
+        return;
+      }
+      if (dist > TRAIL_MAX_GAP) {
+        const n = Math.min(24, Math.ceil(dist / TRAIL_MAX_GAP));
+        for (let i = 1; i < n; i++) {
+          const t = i / n;
+          arr.push({
+            x: last.x + dx * t,
+            y: last.y + dy * t,
+            spd: (last.spd || speed) * (1 - t) + speed * t,
+          });
+        }
+      }
+    }
+    arr.push({ x, y, spd: speed });
+    pend[lastKey] = { x, y, spd: speed };
+    trimArr(arr);
+    if (arr.length) {
+      const lastPt = arr[arr.length - 1];
+      pend[lastKey] = { x: lastPt.x, y: lastPt.y, spd: lastPt.spd || 0 };
+    }
+  }
+
+  function panBy(dx, dy) {
+    if (!dx && !dy) return;
+    pivot.x += dx; pivot.y += dy;
+    for (const p of pendulums) {
+      for (const a of [p.trail1, p.trail2]) for (const q of a) { q.x += dx; q.y += dy; }
+      if (p.last1) { p.last1.x += dx; p.last1.y += dy; }
+      if (p.last2) { p.last2.x += dx; p.last2.y += dy; }
+    }
+  }
+
+  function zoomAt(mx, my, factor) {
+    const next = Math.min(refScale * 8, Math.max(refScale * 0.2, scale * factor));
+    const f = next / scale;
+    if (Math.abs(f - 1) < 1e-6) return;
+    const xf = (q) => { q.x = mx + (q.x - mx) * f; q.y = my + (q.y - my) * f; };
+    pivot.x = mx + (pivot.x - mx) * f; pivot.y = my + (pivot.y - my) * f;
+    for (const p of pendulums) {
+      p.trail1.forEach(xf); p.trail2.forEach(xf);
+      if (p.last1) xf(p.last1); if (p.last2) xf(p.last2);
+    }
+    scale = next;
+  }
+
+  function positionsOf(p) {
+    const x1 = pivot.x + state.L1 * scale * Math.sin(p.theta1);
+    const y1 = pivot.y + state.L1 * scale * Math.cos(p.theta1);
+    const x2 = x1 + state.L2 * scale * Math.sin(p.theta2);
+    const y2 = y1 + state.L2 * scale * Math.cos(p.theta2);
+    return { x1, y1, x2, y2 };
+  }
+
+  function energyOf(p) {
+    const { L1, L2, m1, m2, g } = state;
+    const th1 = p.theta1, th2 = p.theta2, w1 = p.omega1, w2 = p.omega2;
+    const y1 = -L1 * Math.cos(th1);
+    const y2 = y1 - L2 * Math.cos(th2);
+    const pot = m1 * g * y1 + m2 * g * y2;
+    const v1x = L1 * w1 * Math.cos(th1);
+    const v1y = L1 * w1 * Math.sin(th1);
+    const v2x = v1x + L2 * w2 * Math.cos(th2);
+    const v2y = v1y + L2 * w2 * Math.sin(th2);
+    const kin = 0.5 * m1 * (v1x * v1x + v1y * v1y) + 0.5 * m2 * (v2x * v2x + v2y * v2y);
+    return { kin, pot, tot: kin + pot };
+  }
+
+  function deriv(th1, th2, w1, w2) {
+    const { L1, L2, m1, m2, g, friction } = state;
+    const delta = th1 - th2;
+    const den = 2 * m1 + m2 - m2 * Math.cos(2 * delta);
+    let a1 = (-g * (2 * m1 + m2) * Math.sin(th1) - m2 * g * Math.sin(th1 - 2 * th2)
+      - 2 * Math.sin(delta) * m2 * (w2 * w2 * L2 + w1 * w1 * L1 * Math.cos(delta))) / (L1 * den);
+    let a2 = (2 * Math.sin(delta) * (w1 * w1 * L1 * (m1 + m2) + g * (m1 + m2) * Math.cos(th1)
+      + w2 * w2 * L2 * m2 * Math.cos(delta))) / (L2 * den);
+    a1 -= friction * w1; a2 -= friction * w2;
+    return [w1, w2, a1, a2];
+  }
+
+  function rk4Pend(p, dt) {
+    const y = [p.theta1, p.theta2, p.omega1, p.omega2];
+    const k1 = deriv(...y);
+    const k2 = deriv(y[0]+.5*dt*k1[0], y[1]+.5*dt*k1[1], y[2]+.5*dt*k1[2], y[3]+.5*dt*k1[3]);
+    const k3 = deriv(y[0]+.5*dt*k2[0], y[1]+.5*dt*k2[1], y[2]+.5*dt*k2[2], y[3]+.5*dt*k2[3]);
+    const k4 = deriv(y[0]+dt*k3[0], y[1]+dt*k3[1], y[2]+dt*k3[2], y[3]+dt*k3[3]);
+    p.theta1 += (dt/6)*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+    p.theta2 += (dt/6)*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    p.omega1 += (dt/6)*(k1[2]+2*k2[2]+2*k3[2]+k4[2]);
+    p.omega2 += (dt/6)*(k1[3]+2*k2[3]+2*k3[3]+k4[3]);
+  }
+
+  // ——— UI helpers ———
+  function setPanelHidden(h) {
+    panelHidden = h;
+    ui.classList.toggle('hidden', h);
+    btnShow.classList.toggle('visible', h);
+  }
+
+  function bumpAutoHide() {
+    if (!state.autoHide || panelHidden) return;
+    clearTimeout(autoHideTimer);
+    autoHideTimer = setTimeout(() => setPanelHidden(true), 4500);
+  }
+
+  function updateLabels() {
+    $('g-val').textContent = state.g.toFixed(2);
+    $('fric-val').textContent = state.friction.toFixed(2);
+    $('time-val').textContent = state.timeScale.toFixed(2) + '×';
+    $('l1-val').textContent = state.L1.toFixed(2);
+    $('l2-val').textContent = state.L2.toFixed(2);
+    $('m1-val').textContent = state.m1.toFixed(2);
+    $('m2-val').textContent = state.m2.toFixed(2);
+    $('pan-sens-val').textContent = state.panSens.toFixed(2);
+    $('zoom-sens-val').textContent = state.zoomSens.toFixed(2);
+    $('auto-hide-val').textContent = state.autoHide ? t('on') : t('off');
+    $('charts-val').textContent = state.showCharts ? t('on') : t('off');
+    $('chart-size-val').textContent = state.chartSize.toFixed(2) + '×';
+    $('trail-val').textContent = state.trail ? t('on') : t('off');
+    $('trail-both-val').textContent = state.trailBoth ? t('on') : t('off');
+    $('trail-w-val').textContent = state.trailWidth.toFixed(1);
+    $('trail-len-val').textContent = state.trailInfinite ? '∞' : String(state.trailLen);
+    $('trail-inf-val').textContent = state.trailInfinite ? t('on') : t('off');
+    $('trail-op-val').textContent = state.trailOpacity.toFixed(2);
+    $('trail-fade-val').textContent = state.trailFade ? t('on') : t('off');
+    $('trail-soft-val').textContent = state.trailSoft ? t('on') : t('off');
+    $('th1').textContent = ((state.theta1 * 180) / Math.PI).toFixed(2) + '°';
+    $('th2').textContent = ((state.theta2 * 180) / Math.PI).toFixed(2) + '°';
+    $('w1').textContent = state.omega1.toFixed(2);
+    $('w2').textContent = state.omega2.toFixed(2);
+    const e = energyOf(pendulums[0] || { theta1:state.theta1, theta2:state.theta2, omega1:state.omega1, omega2:state.omega2 });
+    $('e-val').textContent = e.tot.toFixed(2);
+    const st = $('stability');
+    st.textContent = stabilityBad ? t('stabilityWarn') : t('stabilityOk');
+    st.classList.toggle('warn', stabilityBad);
+    hudCharts.classList.toggle('hidden', !state.showCharts);
+    document.body.style.background = state.bg;
+    document.documentElement.style.setProperty('--bg', state.bg);
+  }
+
+  function syncSliders() {
+    const map = {
+      g:'g', fric:'friction', time:'timeScale', l1:'L1', l2:'L2', m1:'m1', m2:'m2',
+      'pan-sens':'panSens', 'zoom-sens':'zoomSens', 'auto-hide':'autoHide', 'show-charts':'showCharts',
+      'chart-size':'chartSize',
+      bg:'bg', trail:'trail', 'trail-both':'trailBoth', 'trail-style':'trailStyle',
+      'trail-c1':'trailC1', 'trail-c2':'trailC2', 'trail-w':'trailWidth', 'trail-len':'trailLen',
+      'trail-inf':'trailInfinite', 'trail-op':'trailOpacity', 'trail-fade':'trailFade', 'trail-soft':'trailSoft',
+    };
+    for (const [id, key] of Object.entries(map)) {
+      const el = $(id);
+      if (!el) continue;
+      let v = state[key];
+      if (typeof v === 'boolean') v = v ? 1 : 0;
+      el.value = v;
+    }
+    $('trail-len').disabled = state.trailInfinite;
+    updateLabels();
+    applyChartSizeScale();
+  }
+
+  function bindSlider(id, key, opts = {}) {
+    $(id).addEventListener('input', (e) => {
+      let v = e.target.value;
+      if (opts.bool) v = v === '1';
+      else if (opts.int) v = parseInt(v, 10);
+      else v = Number(v);
+      state[key] = v;
+      if (key === 'trailInfinite') $('trail-len').disabled = state.trailInfinite;
+      if (key === 'showCharts') hudCharts.classList.toggle('hidden', !state.showCharts);
+      if (key === 'chartSize') applyChartSizeScale();
+      if (key === 'autoHide') bumpAutoHide();
+      // Length changes teleport tips → break trails to avoid star chords
+      if (key === 'L1' || key === 'L2') {
+        for (const p of pendulums) { p.last1 = null; p.last2 = null; }
+      }
+      $('preset').value = '';
+      updateLabels();
+      scheduleSave();
+      if (!state.running) draw();
+    });
+  }
+
+  ['g','fric','time','l1','l2','m1','m2','pan-sens','zoom-sens','chart-size','trail-w','trail-op']
+    .forEach((id) => {
+      const key = { g:'g', fric:'friction', time:'timeScale', l1:'L1', l2:'L2', m1:'m1', m2:'m2',
+        'pan-sens':'panSens', 'zoom-sens':'zoomSens', 'chart-size':'chartSize',
+        'trail-w':'trailWidth', 'trail-op':'trailOpacity' }[id];
+      bindSlider(id, key);
+    });
+  bindSlider('trail-len', 'trailLen', { int: true });
+  bindSlider('auto-hide', 'autoHide', { bool: true });
+  bindSlider('show-charts', 'showCharts', { bool: true });
+
+  function syncChartCanvas(win) {
+    const canvas = win.querySelector('canvas');
+    if (!canvas) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const cssW = Math.max(1, canvas.clientWidth);
+    const cssH = Math.max(1, canvas.clientHeight);
+    const w = Math.floor(cssW * dpr);
+    const h = Math.floor(cssH * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+  }
+
+  function applyChartSizeScale() {
+    document.querySelectorAll('.chart-win').forEach((win) => {
+      const bw = Number(win.dataset.baseW) || 240;
+      const bh = Number(win.dataset.baseH) || 140;
+      win.style.width = Math.round(bw * state.chartSize) + 'px';
+      win.style.height = Math.round(bh * state.chartSize) + 'px';
+      syncChartCanvas(win);
+    });
+    // If still in default corner stack (not free-dragged), keep them stacked
+    const energy = $('energy-win');
+    const phase = $('phase-win');
+    if (energy && !energy.style.left && phase) {
+      const ph = Math.round((Number(phase.dataset.baseH) || 140) * state.chartSize);
+      energy.style.right = '1rem';
+      energy.style.bottom = `calc(1rem + ${ph}px + 0.55rem)`;
+      phase.style.right = '1rem';
+      phase.style.bottom = '1rem';
+    }
+  }
+
+  function bumpChartSize(win, factor) {
+    const rect = win.getBoundingClientRect();
+    const nw = Math.min(900, Math.max(160, rect.width * factor));
+    const nh = Math.min(700, Math.max(100, rect.height * factor));
+    win.style.width = Math.round(nw) + 'px';
+    win.style.height = Math.round(nh) + 'px';
+    // Detach from global scale so manual resize sticks
+    win.dataset.baseW = String(Math.round(nw / state.chartSize));
+    win.dataset.baseH = String(Math.round(nh / state.chartSize));
+    syncChartCanvas(win);
+    drawCharts();
+  }
+
+  document.querySelectorAll('.chart-grow').forEach((btn) => {
+    btn.onclick = () => bumpChartSize($(btn.dataset.target), 1.2);
+  });
+  document.querySelectorAll('.chart-shrink').forEach((btn) => {
+    btn.onclick = () => bumpChartSize($(btn.dataset.target), 1 / 1.2);
+  });
+
+  // Drag chart windows by their header
+  document.querySelectorAll('.chart-win').forEach((win) => {
+    const header = win.querySelector('header');
+    if (!header) return;
+    let active = false, ox = 0, oy = 0, pointerId = null;
+
+    const clampPos = (left, top) => {
+      const maxL = Math.max(0, innerWidth - win.offsetWidth);
+      const maxT = Math.max(0, innerHeight - win.offsetHeight);
+      return {
+        left: Math.min(maxL, Math.max(0, left)),
+        top: Math.min(maxT, Math.max(0, top)),
+      };
+    };
+
+    const endDrag = (e) => {
+      if (!active) return;
+      if (pointerId != null && e && e.pointerId != null && e.pointerId !== pointerId) return;
+      active = false;
+      pointerId = null;
+      win.classList.remove('dragging');
+      try { header.releasePointerCapture?.(e?.pointerId); } catch {}
+    };
+
+    header.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      if (e.button != null && e.button !== 0) return;
+      const r = win.getBoundingClientRect();
+      // Switch from right/bottom anchoring to left/top for free placement
+      win.style.left = r.left + 'px';
+      win.style.top = r.top + 'px';
+      win.style.right = 'auto';
+      win.style.bottom = 'auto';
+      active = true;
+      pointerId = e.pointerId;
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      win.classList.add('dragging');
+      header.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+
+    header.addEventListener('pointermove', (e) => {
+      if (!active || (pointerId != null && e.pointerId !== pointerId)) return;
+      const p = clampPos(e.clientX - ox, e.clientY - oy);
+      win.style.left = p.left + 'px';
+      win.style.top = p.top + 'px';
+    });
+
+    header.addEventListener('pointerup', endDrag);
+    header.addEventListener('pointercancel', endDrag);
+  });
+
+  const chartObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      syncChartCanvas(entry.target);
+      drawCharts();
+    }
+  });
+  document.querySelectorAll('.chart-win').forEach((win) => chartObserver.observe(win));
+  bindSlider('trail', 'trail', { bool: true });
+  bindSlider('trail-both', 'trailBoth', { bool: true });
+  bindSlider('trail-inf', 'trailInfinite', { bool: true });
+  bindSlider('trail-fade', 'trailFade', { bool: true });
+  bindSlider('trail-soft', 'trailSoft', { bool: true });
+
+  $('btn-expand-all').onclick = () => {
+    document.querySelectorAll('details.fold').forEach((d) => { d.open = true; });
+  };
+  $('btn-collapse-all').onclick = () => {
+    document.querySelectorAll('details.fold').forEach((d) => { d.open = false; });
+  };
+
+  $('trail-style').addEventListener('change', (e) => { state.trailStyle = e.target.value; scheduleSave(); draw(); });
+  $('trail-c1').addEventListener('input', (e) => { state.trailC1 = e.target.value; scheduleSave(); draw(); });
+  $('trail-c2').addEventListener('input', (e) => { state.trailC2 = e.target.value; scheduleSave(); draw(); });
+  $('bg').addEventListener('input', (e) => { state.bg = e.target.value; updateLabels(); scheduleSave(); draw(); });
+  $('lang').addEventListener('change', (e) => {
+    lang = e.target.value === 'en' ? 'en' : 'fr';
+    localStorage.setItem('dp-lang', lang);
+    applyI18n();
+  });
+
+  $('preset').addEventListener('change', (e) => {
+    const p = PRESETS[e.target.value];
+    if (!p) return;
+    Object.assign(state, DEFAULT_SETTINGS, p);
+    state.theta1 = p.theta1; state.theta2 = p.theta2; state.omega1 = 0; state.omega2 = 0;
+    startPose = { theta1: state.theta1, theta2: state.theta2, omega1:0, omega2:0 };
+    setRunning(false);
+    rebuildClones(false);
+    clearAllTrails();
+    syncSliders();
+    scheduleSave();
+    draw();
+  });
+
+  function setRunning(on) {
+    state.running = on;
+    $('btn-play').textContent = on ? t('pause') : t('play');
+    $('btn-play').classList.toggle('active', on);
+    $('btn-play').classList.toggle('primary', !on);
+    if (on) {
+      startPose = { theta1: state.theta1, theta2: state.theta2, omega1: state.omega1, omega2: state.omega2 };
+      const e = energyOf(pendulums[0]);
+      e0 = e.tot;
+    }
+  }
+
+  $('btn-play').onclick = () => { if (!state.running) clearAllTrails(); setRunning(!state.running); };
+  $('btn-reset').onclick = () => {
+    setRunning(false);
+    state.theta1 = startPose.theta1; state.theta2 = startPose.theta2;
+    state.omega1 = 0; state.omega2 = 0;
+    rebuildClones(false); clearAllTrails(); updateLabels(); draw();
+  };
+  $('btn-center').onclick = () => {
+    pivot.x = basePivot.x; pivot.y = basePivot.y;
+    refScale = Math.min(innerWidth, innerHeight) * 0.22; scale = refScale;
+    clearAllTrails(); draw();
+  };
+  $('btn-clear-trail').onclick = () => { clearAllTrails(); draw(); };
+  $('btn-reset-settings').onclick = () => {
+    const pose = { theta1: state.theta1, theta2: state.theta2 };
+    Object.assign(state, DEFAULT_SETTINGS);
+    state.theta1 = pose.theta1; state.theta2 = pose.theta2;
+    rebuildClones(true); syncSliders(); $('preset').value = ''; scheduleSave(); draw();
+  };
+  $('btn-fullscreen').onclick = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  };
+  $('btn-hide').onclick = (e) => { e.stopPropagation(); setPanelHidden(true); };
+  $('btn-help').onclick = (e) => { e.stopPropagation(); setHelpOpen(true); };
+  $('help-close').onclick = () => setHelpOpen(false);
+  $('help').onclick = (e) => { if (e.target === $('help')) setHelpOpen(false); };
+  btnShow.onclick = () => { setPanelHidden(false); bumpAutoHide(); };
+
+  // Panel drag (addEventListener — do not overwrite window.onpointer*)
+  (() => {
+    let active = false, ox = 0, oy = 0, pointerId = null;
+    const clamp = (l, t) => {
+      const r = ui.getBoundingClientRect();
+      return { left: Math.min(Math.max(0, l), Math.max(0, innerWidth - r.width)),
+               top: Math.min(Math.max(0, t), Math.max(0, innerHeight - r.height)) };
+    };
+    const endDrag = (e) => {
+      if (!active) return;
+      if (pointerId != null && e && e.pointerId !== pointerId) return;
+      active = false;
+      pointerId = null;
+      ui.classList.remove('dragging');
+      try { uiDrag.releasePointerCapture?.(e?.pointerId); } catch {}
+    };
+    uiDrag.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      if (e.button != null && e.button !== 0) return;
+      active = true;
+      pointerId = e.pointerId;
+      ui.classList.add('dragging');
+      const r = ui.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      uiDrag.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+    uiDrag.addEventListener('pointermove', (e) => {
+      if (!active || (pointerId != null && e.pointerId !== pointerId)) return;
+      const p = clamp(e.clientX - ox, e.clientY - oy);
+      ui.style.left = p.left + 'px';
+      ui.style.top = p.top + 'px';
+    });
+    uiDrag.addEventListener('pointerup', endDrag);
+    uiDrag.addEventListener('pointercancel', endDrag);
+    window.addEventListener('blur', () => endDrag());
+  })();
+
+  // ——— Persistence / URL ———
+  const SAVE_KEYS = Object.keys(DEFAULT_SETTINGS).concat(['theta1','theta2']);
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveLocal, 400);
+  }
+  function exportState() {
+    const o = {};
+    for (const k of SAVE_KEYS) o[k] = state[k];
+    return o;
+  }
+  function saveLocal() {
+    localStorage.setItem('dp-settings', JSON.stringify(exportState()));
+  }
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem('dp-settings');
+      if (!raw) return;
+      const o = JSON.parse(raw);
+      Object.assign(state, o);
+    } catch {}
+  }
+  function applyUrl() {
+    const q = new URLSearchParams(location.search);
+    if (![...q.keys()].length) return;
+    for (const k of SAVE_KEYS) {
+      if (!q.has(k)) continue;
+      const raw = q.get(k);
+      if (raw === 'true' || raw === 'false') state[k] = raw === 'true';
+      else if (!Number.isNaN(Number(raw)) && raw !== '') state[k] = Number(raw);
+      else state[k] = raw;
+    }
+  }
+  function shareLink() {
+    const q = new URLSearchParams();
+    for (const k of SAVE_KEYS) q.set(k, String(state[k]));
+    const url = location.origin + location.pathname + '?' + q.toString();
+    navigator.clipboard?.writeText(url);
+    history.replaceState(null, '', '?' + q.toString());
+    toast(t('toastLink'));
+  }
+  $('btn-share').onclick = shareLink;
+  $('btn-save').onclick = () => { saveLocal(); toast(t('toastSaved')); };
+
+  // ——— Export ———
+  function download(filename, blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  $('btn-export-png').onclick = () => {
+    canvas.toBlob((b) => { if (b) { download('double-pendulum.png', b); toast(t('toastPng')); } });
+  };
+  $('btn-copy').onclick = async () => {
+    try {
+      const blob = await new Promise((res) => canvas.toBlob(res));
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      toast(t('toastCopied'));
+    } catch { toast('…'); }
+  };
+  $('btn-export-svg').onclick = () => {
+    const p = pendulums[0];
+    if (!p) return;
+    const parts = [`<svg xmlns="http://www.w3.org/2000/svg" width="${innerWidth}" height="${innerHeight}" viewBox="0 0 ${innerWidth} ${innerHeight}">`,
+      `<rect width="100%" height="100%" fill="${state.bg}"/>`];
+    const pathFrom = (arr, color) => {
+      if (arr.length < 2) return;
+      let d = `M ${arr[0].x.toFixed(2)} ${arr[0].y.toFixed(2)}`;
+      for (let i = 1; i < arr.length; i++) d += ` L ${arr[i].x.toFixed(2)} ${arr[i].y.toFixed(2)}`;
+      parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${state.trailWidth}" stroke-linecap="round" opacity="${state.trailOpacity}"/>`);
+    };
+    pathFrom(p.trail2, state.trailC1);
+    if (state.trailBoth) pathFrom(p.trail1, state.trailC2);
+    const pos = positionsOf(p);
+    parts.push(`<line x1="${pivot.x}" y1="${pivot.y}" x2="${pos.x1}" y2="${pos.y1}" stroke="#ccc" stroke-width="2"/>`);
+    parts.push(`<line x1="${pos.x1}" y1="${pos.y1}" x2="${pos.x2}" y2="${pos.y2}" stroke="#ccc" stroke-width="2"/>`);
+    parts.push('</svg>');
+    download('double-pendulum.svg', new Blob([parts.join('')], { type: 'image/svg+xml' }));
+    toast(t('toastSvg'));
+  };
+
+  // ——— Input ———
+  function pointerPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const s = e.touches ? e.touches[0] : e;
+    return { x: s.clientX - r.left, y: s.clientY - r.top };
+  }
+  function hitTest(p) {
+    const pos = positionsOf(pendulums[0]);
+    const k = zoomK();
+    const r1 = (14 + state.m1 * 6) * k, r2 = (14 + state.m2 * 6) * k;
+    if ((p.x-pos.x2)**2 + (p.y-pos.y2)**2 <= r2*r2) return 2;
+    if ((p.x-pos.x1)**2 + (p.y-pos.y1)**2 <= r1*r1) return 1;
+    return null;
+  }
+  function setAngleFromPointer(which, pt) {
+    if (which === 1) {
+      state.theta1 = Math.atan2(pt.x - pivot.x, pt.y - pivot.y);
+      state.omega1 = 0; state.omega2 = 0;
+    } else {
+      const { x1, y1 } = positionsOf(pendulums[0]);
+      state.theta2 = Math.atan2(pt.x - x1, pt.y - y1);
+      state.omega2 = 0;
+    }
+    startPose = { theta1: state.theta1, theta2: state.theta2, omega1:0, omega2:0 };
+    rebuildClones(false);
+    clearAllTrails();
+    updateLabels();
+    scheduleSave();
+  }
+
+  canvas.onpointerdown = (e) => {
+    const p = pointerPos(e); const hit = hitTest(p); e.preventDefault();
+    bumpAutoHide();
+    if (hit) { setRunning(false); drag = hit; canvas.classList.add('dragging'); setAngleFromPointer(hit, p); draw(); return; }
+    drag = 'pan'; panLast = p; canvas.classList.add('dragging');
+  };
+  canvas.onpointermove = (e) => {
+    const p = pointerPos(e);
+    if (drag === 1 || drag === 2) { e.preventDefault(); setAngleFromPointer(drag, p); draw(); return; }
+    if (drag === 'pan' && panLast) {
+      e.preventDefault();
+      panBy((p.x - panLast.x) * state.panSens, (p.y - panLast.y) * state.panSens);
+      panLast = p; draw(); return;
+    }
+    hover = hitTest(p);
+  };
+  window.addEventListener('pointerup', () => {
+    drag = null; panLast = null; canvas.classList.remove('dragging');
+  });
+  window.addEventListener('pointercancel', () => {
+    drag = null; panLast = null; canvas.classList.remove('dragging');
+  });
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const p = pointerPos(e);
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) dy *= 16;
+    if (e.deltaMode === 2) dy *= innerHeight;
+    zoomAt(p.x, p.y, Math.exp(-dy * 0.0018 * state.zoomSens));
+    draw();
+  }, { passive: false });
+
+  canvas.addEventListener('dblclick', (e) => {
+    const p = pointerPos(e);
+    panBy(innerWidth / 2 - p.x, innerHeight / 2 - p.y);
+    draw();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, select, textarea')) return;
+    const k = e.key.toLowerCase();
+    const helpOpen = $('help').classList.contains('open');
+    if (k === 'escape' && helpOpen) { setHelpOpen(false); return; }
+    if (k === 'h') { e.preventDefault(); setHelpOpen(!helpOpen); return; }
+    if (helpOpen) return;
+    if (k === 'p') setPanelHidden(!panelHidden);
+    else if (k === ' ') { e.preventDefault(); if (!state.running) clearAllTrails(); setRunning(!state.running); }
+    else if (k === 'r') $('btn-reset').click();
+    else if (k === 'c') $('btn-clear-trail').click();
+    else if (k === 'f') $('btn-fullscreen').click();
+  });
+
+  ui.addEventListener('pointerdown', bumpAutoHide);
+  ui.addEventListener('input', bumpAutoHide);
+
+  // ——— Draw ———
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function mixRgb(a,b,t){ return { r:a.r+(b.r-a.r)*t, g:a.g+(b.g-a.g)*t, b:a.b+(b.b-a.b)*t }; }
+  function rgba(c,a){ return `rgba(${c.r|0},${c.g|0},${c.b|0},${a})`; }
+
+  function tipSpeed(p, which) {
+    // Physical tip speed in "world" units (independent of zoom)
+    const { L1, L2 } = state;
+    const w1 = p.omega1, w2 = p.omega2, th1 = p.theta1, th2 = p.theta2;
+    const v1x = L1 * w1 * Math.cos(th1);
+    const v1y = L1 * w1 * Math.sin(th1);
+    if (which === 1) return Math.hypot(v1x, v1y);
+    const v2x = v1x + L2 * w2 * Math.cos(th2);
+    const v2y = v1y + L2 * w2 * Math.sin(th2);
+    return Math.hypot(v2x, v2y);
+  }
+
+  function speedNorm(speed, peak) {
+    // Contrast-heavy mapping: slow stays cool, fast pops warm
+    const n = Math.min(1, speed / Math.max(0.35, peak * 0.85));
+    return Math.pow(n, 0.55);
+  }
+
+  function trailColor(i, len, speed, hueBase, which) {
+    const u = i / Math.max(1, len - 1);
+    const fade = state.trailFade ? (0.25 + 0.75 * u) : 1;
+    let alpha = state.trailOpacity * fade;
+    const c1 = hexToRgb(state.trailC1), c2 = hexToRgb(state.trailC2);
+    switch (state.trailStyle) {
+      case 'solid':
+        // m1 uses B, m2 uses A so dual trails stay distinct
+        return rgba(which === 1 ? c2 : c1, alpha * (which === 1 ? 0.75 : 1));
+      case 'speed': {
+        const s = speedNorm(speed, speedPeak);
+        // Same absolute scale & direction for m1 and m2: A (slow) → B (fast)
+        const col = mixRgb(c1, c2, s);
+        alpha *= (which === 1 ? 0.7 : 1) * (0.35 + s * 0.75);
+        return rgba(col, alpha);
+      }
+      case 'rainbow': {
+        const base = which === 1 ? hueBase + 80 : hueBase;
+        return `hsla(${(base + u * 140 + speed * 8) % 360},62%,${48 + speedNorm(speed, speedPeak) * 18}%,${alpha})`;
+      }
+      default:
+        return rgba(mixRgb(which === 1 ? c2 : c1, which === 1 ? c1 : c2, u), alpha * (which === 1 ? 0.7 : 1));
+    }
+  }
+
+  function drawTrailArr(arr, hue, which) {
+    if (!state.trail || arr.length < 2) return;
+    const k = zoomK();
+    ctx.lineCap = state.trailSoft ? 'round' : 'butt';
+    ctx.lineJoin = state.trailSoft ? 'round' : 'miter';
+    // Always connect consecutive samples only. Skipping indices (old stride)
+    // created chords through the pivot → star artifact.
+    const step = arr.length > 12000 ? 2 : 1;
+    for (let i = step; i < arr.length; i += step) {
+      const p0 = arr[i - step];
+      const p1 = arr[i];
+      if (p1.brk) continue;
+      const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      if (dist > TRAIL_BREAK) continue;
+      const speed = p1.spd != null ? p1.spd : dist;
+      const u = i / arr.length;
+      const s = state.trailStyle === 'speed' ? speedNorm(speed, speedPeak) : 0;
+      let width = state.trailWidth * k * (state.trailFade ? 0.45 + u * 0.7 : 1);
+      if (state.trailStyle === 'speed') width *= 0.55 + s * 1.35;
+      if (which === 1) width *= 0.85;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineWidth = width;
+      ctx.strokeStyle = trailColor(i, arr.length, speed, hue, which);
+      ctx.stroke();
+    }
+  }
+
+  function drawBob(x, y, mass, color, active) {
+    const k = zoomK();
+    const r = (10 + mass * 7) * k;
+    const g = ctx.createRadialGradient(x - r*0.3, y - r*0.35, r*0.1, x, y, r);
+    g.addColorStop(0, '#f3efe6'); g.addColorStop(0.35, color); g.addColorStop(1, 'rgba(10,12,16,.9)');
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fillStyle = g; ctx.fill();
+    if (active) {
+      ctx.beginPath(); ctx.arc(x, y, r + 5*k, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(212,165,116,.7)'; ctx.lineWidth = 1.5*k; ctx.stroke();
+    }
+  }
+
+  function drawCharts() {
+    if (!state.showCharts) return;
+    syncChartCanvas($('energy-win'));
+    syncChartCanvas($('phase-win'));
+    const ew = energyCanvas.width, eh = energyCanvas.height;
+    const pw = phaseCanvas.width, ph = phaseCanvas.height;
+    const lw = Math.max(1.5, ew / 220);
+
+    ectx.fillStyle = 'rgba(12,14,18,0.35)';
+    ectx.fillRect(0, 0, ew, eh);
+    if (energyHist.length > 1) {
+      const vals = energyHist;
+      let min = Infinity, max = -Infinity;
+      for (const v of vals) { min = Math.min(min, v.pot, v.kin, v.tot); max = Math.max(max, v.pot, v.kin, v.tot); }
+      const pad = (max - min) * 0.1 || 1;
+      min -= pad; max += pad;
+      const plot = (key, color) => {
+        ectx.beginPath();
+        for (let i = 0; i < vals.length; i++) {
+          const x = 12 + (i / (vals.length - 1)) * (ew - 24);
+          const y = eh - 12 - ((vals[i][key] - min) / (max - min)) * (eh - 24);
+          if (i === 0) ectx.moveTo(x, y); else ectx.lineTo(x, y);
+        }
+        ectx.strokeStyle = color; ectx.lineWidth = lw; ectx.stroke();
+      };
+      plot('pot', '#6f9e8e'); plot('kin', '#d4a574'); plot('tot', '#e8ebe6');
+    }
+
+    pctx.fillStyle = 'rgba(12,14,18,0.35)';
+    pctx.fillRect(0, 0, pw, ph);
+    if (phaseHist.length > 1) {
+      let min1=Infinity,max1=-Infinity,min2=Infinity,max2=-Infinity;
+      for (const v of phaseHist) {
+        min1=Math.min(min1,v.th1); max1=Math.max(max1,v.th1);
+        min2=Math.min(min2,v.th2); max2=Math.max(max2,v.th2);
+      }
+      const dx=(max1-min1)||1, dy=(max2-min2)||1;
+      pctx.beginPath();
+      for (let i=0;i<phaseHist.length;i++){
+        const x = 14 + ((phaseHist[i].th1-min1)/dx)*(pw-28);
+        const y = ph-14 - ((phaseHist[i].th2-min2)/dy)*(ph-28);
+        if(i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+      }
+      pctx.strokeStyle = '#d4a574'; pctx.lineWidth = lw; pctx.stroke();
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = state.bg;
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+    const k = zoomK();
+    const bg = hexToRgb(state.bg);
+    const gridA = (bg.r+bg.g+bg.b)/3 > 140 ? 0.06 : 0.035;
+    ctx.strokeStyle = `rgba(232,235,230,${gridA})`; ctx.lineWidth = 1;
+    const step = Math.max(12, 48 * k);
+    const ox = ((pivot.x % step)+step)%step, oy = ((pivot.y % step)+step)%step;
+    for (let x=ox; x<innerWidth; x+=step) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,innerHeight); ctx.stroke(); }
+    for (let y=oy; y<innerHeight; y+=step) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(innerWidth,y); ctx.stroke(); }
+
+    const p = pendulums[0];
+    if (p) {
+      if (state.trailBoth) drawTrailArr(p.trail1, p.hue + 40, 1);
+      drawTrailArr(p.trail2, p.hue, 2);
+    }
+
+    if (!state.running && p) {
+      ctx.strokeStyle = 'rgba(232,235,230,0.06)'; ctx.setLineDash([4,8]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(pivot.x, pivot.y, state.L1*scale, 0, Math.PI*2); ctx.stroke();
+      const {x1,y1} = positionsOf(p);
+      ctx.beginPath(); ctx.arc(x1,y1, state.L2*scale, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (p) {
+      const pos = positionsOf(p);
+      ctx.beginPath();
+      ctx.moveTo(pivot.x - 28*k, pivot.y - 10*k); ctx.lineTo(pivot.x + 28*k, pivot.y - 10*k);
+      ctx.strokeStyle = 'rgba(232,235,230,0.35)'; ctx.lineWidth = 3*k; ctx.lineCap='round'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(pivot.x, pivot.y, 5*k, 0, Math.PI*2); ctx.fillStyle='#cfc8bc'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(pivot.x,pivot.y); ctx.lineTo(pos.x1,pos.y1);
+      ctx.strokeStyle='rgba(232,235,230,0.55)'; ctx.lineWidth=2.2*k; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pos.x1,pos.y1); ctx.lineTo(pos.x2,pos.y2); ctx.stroke();
+      drawBob(pos.x1, pos.y1, state.m1, '#6f9e8e', hover===1||drag===1);
+      drawBob(pos.x2, pos.y2, state.m2, '#d4a574', hover===2||drag===2);
+    }
+    drawCharts();
+  }
+
+  function resize() {
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    canvas.width = Math.floor(innerWidth * dpr);
+    canvas.height = Math.floor(innerHeight * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const prev = { ...basePivot };
+    basePivot.x = innerWidth * 0.56; basePivot.y = innerHeight * 0.26;
+    if (!pivot.x && !pivot.y) { pivot.x = basePivot.x; pivot.y = basePivot.y; }
+    else panBy(basePivot.x - prev.x, basePivot.y - prev.y);
+    const nextRef = Math.min(innerWidth, innerHeight) * 0.22;
+    const z = scale / (refScale || nextRef);
+    refScale = nextRef; scale = refScale * (z || 1);
+    draw();
+  }
+  addEventListener('resize', resize);
+
+  let last = performance.now();
+  function frame(now) {
+    rafId = 0;
+    if (helpOpen) return; // paused while help dialog is visible
+    const dtReal = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    if (state.running) {
+      let acc = Math.min(dtReal * state.timeScale, 0.35);
+      stabilityBad = state.timeScale >= 5 || acc > 0.2;
+      let guard = 0;
+      while (acc > 0 && guard++ < 1200) {
+        const step = Math.min(PHYS_DT, acc);
+        for (const p of pendulums) rk4Pend(p, step);
+        acc -= step;
+        trailSampleAcc += step;
+        while (trailSampleAcc >= TRAIL_SAMPLE_DT) {
+          trailSampleAcc -= TRAIL_SAMPLE_DT;
+          for (const p of pendulums) {
+            const pos = positionsOf(p);
+            const s2 = tipSpeed(p, 2), s1 = tipSpeed(p, 1);
+            speedPeak = Math.max(s1, s2, speedPeak * 0.995);
+            pushPt(p.trail2, 'last2', p, pos.x2, pos.y2, s2);
+            if (state.trailBoth) pushPt(p.trail1, 'last1', p, pos.x1, pos.y1, s1);
+          }
+        }
+      }
+      for (const p of pendulums) {
+        const pos = positionsOf(p);
+        const s2 = tipSpeed(p, 2), s1 = tipSpeed(p, 1);
+        pushPt(p.trail2, 'last2', p, pos.x2, pos.y2, s2);
+        if (state.trailBoth) pushPt(p.trail1, 'last1', p, pos.x1, pos.y1, s1);
+      }
+      syncPrimaryFromPendulum();
+      const e = energyOf(pendulums[0]);
+      energyHist.push(e);
+      if (energyHist.length > ENERGY_HIST) energyHist.shift();
+      phaseHist.push({ th1: pendulums[0].theta1, th2: pendulums[0].theta2 });
+      if (phaseHist.length > PHASE_HIST) phaseHist.shift();
+      if (e0 != null && Math.abs(e.tot - e0) > Math.max(2, Math.abs(e0) * 0.35) && state.friction < 0.01) {
+        stabilityBad = true;
+      }
+      updateLabels();
+    }
+    draw();
+    rafId = requestAnimationFrame(frame);
+  }
+
+  // Init
+  loadLocal();
+  applyUrl();
+  rebuildClones(false);
+  syncSliders();
+  applyI18n();
+  applyChartSizeScale();
+  refScale = Math.min(innerWidth, innerHeight) * 0.22;
+  scale = refScale;
+  resize();
+  rafId = requestAnimationFrame(frame);
+  setTimeout(() => $('hint').classList.add('fade'), 5500);
+})();
+</script>
+</body>
+</html>
